@@ -1,0 +1,293 @@
+{% extends "layout.html" %}
+{% block title %}Admin Panel - MediBook{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <div class="page-header">
+        <h1>Admin Panel</h1>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span class="muted">Logged in as Administrator</span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ counts.total }}</div>
+            <div class="stat-label">Total Appointments</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-number">{{ counts.pending }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-number">{{ counts.approved }}</div>
+            <div class="stat-label">Approved</div>
+        </div>
+        <div class="stat-card blue">
+            <div class="stat-number">{{ counts.patients }}</div>
+            <div class="stat-label">Patients</div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button type="button" class="tab{% if active_tab == 'appointments' %} active{% endif %}"
+                onclick="switchTab('appointments', this)">Appointments</button>
+        <button type="button" class="tab{% if active_tab == 'doctors' %} active{% endif %}"
+                onclick="switchTab('doctors', this)">Doctors</button>
+        <button type="button" class="tab{% if active_tab == 'patients' %} active{% endif %}"
+                onclick="switchTab('patients', this)">Patients</button>
+    </div>
+
+    <div id="tab-appointments" class="tab-panel"{% if active_tab != 'appointments' %} style="display:none;"{% endif %}>
+        <div class="card">
+            <div class="card-header-bar">
+                <div class="card-title">All Appointments</div>
+                {% if appointments %}
+                <div class="card-actions">
+                    <form method="POST" action="{{ url_for('delete_all_admin_records', target='appointments') }}"
+                          class="inline-form"
+                          onsubmit="return confirm('Delete all appointments? This cannot be undone.');">
+                        <input type="hidden" name="tab" value="appointments">
+                        <button type="submit" class="btn btn-sm btn-red">Delete All</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% if appointments %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Doctor</th>
+                            <th>Hospital</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments %}
+                        <tr>
+                            <td><strong>{{ a.user.name }}</strong></td>
+                            <td>{{ a.doctor.name }}</td>
+                            <td>{{ a.doctor.hospital or "-" }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>
+                                {% if a.status == "Pending" %}
+                                <span class="badge pending">Pending</span>
+                                {% elif a.status == "Approved" %}
+                                <span class="badge approved">Approved</span>
+                                {% elif a.status == "Completed" %}
+                                <span class="badge completed">Completed</span>
+                                {% elif a.status == "Rejected" %}
+                                <span class="badge rejected">Rejected</span>
+                                {% else %}
+                                <span class="badge cancelled">Cancelled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state"><p>No appointments yet.</p></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="tab-doctors" class="tab-panel"{% if active_tab != 'doctors' %} style="display:none;"{% endif %}>
+        <div class="card">
+            <div class="card-title">Add New Doctor</div>
+            <form method="POST" action="{{ url_for('add_doctor') }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Doctor Name</label>
+                        <input type="text" name="name" placeholder="Dr. Full Name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Specialty</label>
+                        <select name="specialty">
+                            <option>General Medicine</option>
+                            <option>Cardiology</option>
+                            <option>Neurology</option>
+                            <option>Pediatrics</option>
+                            <option>Dermatology</option>
+                            <option>Orthopedics</option>
+                            <option>Gynecology</option>
+                            <option>Ophthalmology</option>
+                            <option>ENT</option>
+                            <option>Psychiatry</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Consultation Fee (Rs.)</label>
+                        <input type="number" name="fee" placeholder="500" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Hospital / Clinic</label>
+                        <input type="text" name="hospital" placeholder="e.g. Apollo Hospitals, Chennai">
+                    </div>
+                    <div class="form-group">
+                        <label>City</label>
+                        <input type="text" name="city" placeholder="e.g. Chennai">
+                    </div>
+                    <div class="form-group">
+                        <label>Experience (years)</label>
+                        <input type="number" name="experience" placeholder="5" min="0" max="60">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Doctor Bio / Experience Description</label>
+                    <textarea name="bio" rows="3"
+                              placeholder="Brief description of the doctor's experience, qualifications and specialization..."
+                              style="width:100%;padding:10px;border:1px solid #dde3ee;border-radius:8px;font-size:14px;resize:vertical;"></textarea>
+                </div>
+                <p class="muted" style="margin-top:-4px;margin-bottom:16px;">
+                    New doctors can use the Doctor login option with the default password <strong>doctor123</strong>.
+                </p>
+                <button type="submit" class="btn btn-blue">Add Doctor</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-header-bar">
+                <div class="card-title">Current Doctors ({{ doctors|length }})</div>
+                {% if doctors %}
+                <div class="card-actions">
+                    <form method="POST" action="{{ url_for('delete_all_admin_records', target='doctors') }}"
+                          class="inline-form"
+                          onsubmit="return confirm('Delete all doctors and all linked appointments? This cannot be undone.');">
+                        <input type="hidden" name="tab" value="doctors">
+                        <button type="submit" class="btn btn-sm btn-red">Delete All</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% if doctors %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Specialty</th>
+                            <th>Hospital</th>
+                            <th>City</th>
+                            <th>Exp</th>
+                            <th>Fee</th>
+                            <th>Appointments</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in doctors %}
+                        <tr>
+                            <td><strong>{{ doc.name }}</strong></td>
+                            <td>{{ doc.specialty }}</td>
+                            <td style="font-size:12px;color:#555;">{{ doc.hospital }}</td>
+                            <td style="font-size:12px;">{{ doc.city }}</td>
+                            <td>{{ doc.experience }}y</td>
+                            <td>Rs. {{ doc.fee }}</td>
+                            <td>{{ doc.appointments|length }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('delete_doctor', doc_id=doc.id) }}"
+                                      class="inline-form"
+                                      onsubmit="return confirm('Remove Dr. {{ doc.name }} and all linked appointments?');">
+                                    <input type="hidden" name="tab" value="doctors">
+                                    <button type="submit" class="btn btn-sm btn-red">Remove</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state"><p>No doctors added yet.</p></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="tab-patients" class="tab-panel"{% if active_tab != 'patients' %} style="display:none;"{% endif %}>
+        <div class="card">
+            <div class="card-header-bar">
+                <div class="card-title">Registered Patients ({{ patients|length }})</div>
+                {% if patients %}
+                <div class="card-actions">
+                    <form method="POST" action="{{ url_for('delete_all_admin_records', target='patients') }}"
+                          class="inline-form"
+                          onsubmit="return confirm('Delete all patient accounts and all linked appointments? This cannot be undone.');">
+                        <input type="hidden" name="tab" value="patients">
+                        <button type="submit" class="btn btn-sm btn-red">Delete All</button>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+            {% if patients %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Gender</th>
+                            <th>Appointments</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in patients %}
+                        <tr>
+                            <td><strong>{{ p.name }}</strong></td>
+                            <td>{{ p.email }}</td>
+                            <td>{{ p.phone or "-" }}</td>
+                            <td>{{ p.gender or "-" }}</td>
+                            <td>{{ p.appointments|length }}</td>
+                            <td>
+                                <form method="POST" action="{{ url_for('delete_patient', user_id=p.id) }}"
+                                      class="inline-form"
+                                      onsubmit="return confirm('Delete patient {{ p.name }} and all linked appointments?');">
+                                    <input type="hidden" name="tab" value="patients">
+                                    <button type="submit" class="btn btn-sm btn-red">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state"><p>No patients registered yet.</p></div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function switchTab(name, clickedBtn) {
+        document.querySelectorAll(".tab-panel").forEach(function(panel) {
+            panel.style.display = "none";
+        });
+
+        document.querySelectorAll(".tab").forEach(function(tab) {
+            tab.classList.remove("active");
+        });
+
+        document.getElementById("tab-" + name).style.display = "block";
+        clickedBtn.classList.add("active");
+
+        var url = new URL(window.location.href);
+        url.searchParams.set("tab", name);
+        window.history.replaceState({}, "", url);
+    }
+</script>
+{% endblock %}

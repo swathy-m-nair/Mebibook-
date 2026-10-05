@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MediBook{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<!-- Top Navigation Bar -->
+<nav class="navbar">
+    <a href="{% if session.role == 'doctor' %}{{ url_for('doctor_dashboard') }}{% elif session.role == 'admin' %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('home') }}{% endif %}" class="nav-logo">🏥 MediBook</a>
+    <div class="nav-links">
+        {% if session.role == "user" %}
+            <span class="nav-user">👤 {{ session.name }}</span>
+            <a href="{{ url_for('patient_dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('book') }}">Book</a>
+            <a href="{{ url_for('logout') }}" class="btn-nav">Logout</a>
+
+        {% elif session.role == "doctor" %}
+            <span class="nav-user">🩺 {{ session.name }}</span>
+            <a href="{{ url_for('doctor_dashboard') }}">Doctor Panel</a>
+            <a href="{{ url_for('logout') }}" class="btn-nav">Logout</a>
+
+        {% elif session.role == "hospital" %}
+            <span class="nav-user">🏥 {{ session.name }}</span>
+            <a href="{{ url_for('hospital_dashboard') }}">Hospital Panel</a>
+            <a href="{{ url_for('logout') }}" class="btn-nav">Logout</a>
+
+        {% elif session.role == "admin" %}
+            <span class="nav-user">🛡️ Admin</span>
+            <a href="{{ url_for('admin_dashboard') }}">Admin Panel</a>
+            <a href="{{ url_for('logout') }}" class="btn-nav">Logout</a>
+
+        {% else %}
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register') }}" class="btn-nav">Sign Up</a>
+        {% endif %}
+    </div>
+</nav>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-area">
+        {% for category, message in messages %}
+            <div class="flash {{ category }}">
+                {{ message }}
+                <button onclick="this.parentElement.remove()">✕</button>
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+{% endwith %}
+
+<!-- Page Content -->
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Simple footer -->
+<footer>
+    <p>© 2024 MediBook — Doctor Appointment System</p>
+</footer>
+
+<script>
+    // Auto-hide flash messages after 4 seconds
+    setTimeout(function() {
+        document.querySelectorAll(".flash").forEach(function(el) {
+            el.style.opacity = "0";
+            setTimeout(function() { el.remove(); }, 400);
+        });
+    }, 4000);
+</script>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

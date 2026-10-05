@@ -1,0 +1,176 @@
+{% extends "layout.html" %}
+{% block title %}{{ hospital.name }} — Hospital Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <h1>🏥 {{ hospital.name }}</h1>
+            <p class="muted">{{ hospital.city }} &nbsp;·&nbsp; Hospital Dashboard &nbsp;·&nbsp; Read-only view</p>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="stats-grid">
+        <div class="stat-card blue">
+            <div class="stat-number">{{ counts.total }}</div>
+            <div class="stat-label">Total Appointments</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-number">{{ counts.pending }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-number">{{ counts.approved }}</div>
+            <div class="stat-label">Approved</div>
+        </div>
+        <div class="stat-card blue">
+            <div class="stat-number">{{ counts.doctors }}</div>
+            <div class="stat-label">Doctors in Hospital</div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <a href="{{ url_for('hospital_dashboard', tab='appointments') }}"
+           class="tab {% if active_tab == 'appointments' %}active{% endif %}">
+            📅 Appointments
+        </a>
+        <a href="{{ url_for('hospital_dashboard', tab='doctors') }}"
+           class="tab {% if active_tab == 'doctors' %}active{% endif %}">
+            🩺 Doctors & Fees
+        </a>
+    </div>
+
+    <!-- ── TAB: APPOINTMENTS ── -->
+    {% if active_tab == 'appointments' %}
+    <div class="card">
+        <div class="card-title">All Appointments — {{ hospital.name }}</div>
+
+        {% if appointments %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Patient</th>
+                        <th>Doctor</th>
+                        <th>Specialty</th>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for appt in appointments %}
+                    <tr>
+                        <td class="muted">{{ appt.id }}</td>
+                        <td>
+                            {% if appt.user %}
+                                <strong>{{ appt.user.name }}</strong>
+                                {% if appt.user.phone %}
+                                <br><small class="muted">{{ appt.user.phone }}</small>
+                                {% endif %}
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if appt.doctor %}
+                                <strong>{{ appt.doctor.name }}</strong>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if appt.doctor %}
+                                <span class="specialty-tag">{{ appt.doctor.specialty }}</span>
+                            {% else %}
+                                <span class="muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ appt.date }}</td>
+                        <td>{{ appt.time }}</td>
+                        <td>{{ appt.reason or 'General Checkup' }}</td>
+                        <td>
+                            {% if appt.status == "Pending" %}<span class="badge pending">Pending</span>
+                            {% elif appt.status == "Approved" %}<span class="badge approved">Approved</span>
+                            {% elif appt.status == "Completed" %}<span class="badge completed">Completed</span>
+                            {% elif appt.status == "Rejected" %}<span class="badge rejected">Rejected</span>
+                            {% else %}<span class="badge cancelled">{{ appt.status }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📅</div>
+            <p>No appointments have been booked at {{ hospital.name }} yet.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ── TAB: DOCTORS & FEES ── -->
+    {% if active_tab == 'doctors' %}
+    <div class="card">
+        <div class="card-title">Doctors &amp; Consultation Fees — {{ hospital.name }}</div>
+
+        {% if doctors %}
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Doctor</th>
+                        <th>Specialty</th>
+                        <th>Experience</th>
+                        <th>Consultation Fee</th>
+                        <th>Appointments</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in doctors %}
+                    {% set doc_appts = appointments | selectattr('doctor_id', 'equalto', doc.id) | list %}
+                    <tr>
+                        <td class="muted">{{ doc.id }}</td>
+                        <td>
+                            <strong>{{ doc.name }}</strong>
+                            {% if doc.bio %}
+                            <br><small class="muted" style="max-width:280px;display:inline-block;">{{ doc.bio[:80] }}{% if doc.bio|length > 80 %}…{% endif %}</small>
+                            {% endif %}
+                        </td>
+                        <td><span class="specialty-tag">{{ doc.specialty }}</span></td>
+                        <td>{{ doc.experience }} yrs</td>
+                        <td>
+                            <span class="fee-badge">₹{{ doc.fee }}</span>
+                        </td>
+                        <td>
+                            <span class="muted">{{ doc_appts | length }} total</span>
+                            &nbsp;
+                            <span style="color:#f57c00; font-size:13px;">
+                                {{ doc_appts | selectattr('status', 'equalto', 'Pending') | list | length }} pending
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🩺</div>
+            <p>No doctors are registered under {{ hospital.name }} yet.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

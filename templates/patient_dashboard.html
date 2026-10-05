@@ -1,0 +1,205 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard - MediBook{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <div class="page-header">
+        <h1>Welcome, {{ user.name }}! 👋</h1>
+        <a href="{{ url_for('book') }}" class="btn btn-blue">+ Book Appointment</a>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-number">{{ counts.total }}</div>
+            <div class="stat-label">Total Appointments</div>
+        </div>
+        <div class="stat-card orange">
+            <div class="stat-number">{{ counts.pending }}</div>
+            <div class="stat-label">Pending</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-number">{{ counts.approved }}</div>
+            <div class="stat-label">Approved</div>
+        </div>
+        <div class="stat-card blue">
+            <div class="stat-number">{{ counts.message_threads }}</div>
+            <div class="stat-label">Message Threads</div>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div class="card">
+            <div class="card-title">👤 My Profile</div>
+            <div class="profile-item">
+                <span class="profile-label">Name</span>
+                <span>{{ user.name }}</span>
+            </div>
+            <div class="profile-item">
+                <span class="profile-label">Email</span>
+                <span>{{ user.email }}</span>
+            </div>
+            <div class="profile-item">
+                <span class="profile-label">Phone</span>
+                <span>{{ user.phone or "—" }}</span>
+            </div>
+            <div class="profile-item">
+                <span class="profile-label">Gender</span>
+                <span>{{ user.gender or "—" }}</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">⚡ Quick Actions</div>
+            <a href="{{ url_for('book') }}" class="action-link">📅 Book a New Appointment</a>
+            <a href="{{ url_for('patient_dashboard', tab='appointments') }}" class="action-link">📋 View My Appointments</a>
+            <a href="{{ url_for('patient_dashboard', tab='messages') }}" class="action-link">💬 Open Messages</a>
+            <a href="{{ url_for('logout') }}" class="action-link red-link">🚪 Logout</a>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <a href="{{ url_for('patient_dashboard', tab='appointments') }}"
+           class="tab tab-link{% if active_tab == 'appointments' %} active{% endif %}">Appointments</a>
+        <a href="{% if selected_message_appointment %}{{ url_for('patient_dashboard', tab='messages', appointment_id=selected_message_appointment.id) }}{% else %}{{ url_for('patient_dashboard', tab='messages') }}{% endif %}"
+           class="tab tab-link{% if active_tab == 'messages' %} active{% endif %}">Messages</a>
+    </div>
+
+    <div id="tab-appointments" class="tab-panel"{% if active_tab != 'appointments' %} style="display:none;"{% endif %}>
+        <div class="card" id="appointments">
+            <div class="card-title">📋 My Appointments</div>
+
+            {% if appointments %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Doctor</th>
+                            <th>Specialty</th>
+                            <th>Hospital</th>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                            <th>Messages</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments %}
+                        <tr>
+                            <td><strong>{{ a.doctor.name }}</strong></td>
+                            <td>{{ a.doctor.specialty }}</td>
+                            <td>{{ a.doctor.hospital }}</td>
+                            <td>{{ a.date }}</td>
+                            <td>{{ a.time }}</td>
+                            <td>
+                                {% if a.status == "Pending" %}<span class="badge pending">Pending</span>
+                                {% elif a.status == "Approved" %}<span class="badge approved">Approved</span>
+                                {% elif a.status == "Completed" %}<span class="badge completed">Completed</span>
+                                {% elif a.status == "Rejected" %}<span class="badge rejected">Rejected</span>
+                                {% else %}<span class="badge cancelled">Cancelled</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('patient_dashboard', tab='messages', appointment_id=a.id) }}" class="btn btn-sm btn-gray">
+                                    Chat{% if a.messages|length %} ({{ a.messages|length }}){% endif %}
+                                </a>
+                            </td>
+                            <td>
+                                {% if a.status == "Pending" %}
+                                <form method="POST" action="{{ url_for('cancel_appointment', appt_id=a.id) }}" style="display:inline;">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-red"
+                                            onclick="return confirm('Cancel this appointment?')">
+                                        Cancel
+                                    </button>
+                                </form>
+                                {% elif a.status == "Approved" %}
+                                <span class="btn btn-sm btn-red btn-disabled" aria-disabled="true">Cancel</span>
+                                {% elif a.status == "Completed" %}
+                                <span class="muted">Completed</span>
+                                {% else %}&mdash;{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No appointments yet.</p>
+                <a href="{{ url_for('book') }}" class="btn btn-blue">Book your first appointment</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="tab-messages" class="tab-panel"{% if active_tab != 'messages' %} style="display:none;"{% endif %}>
+        <div class="message-layout">
+            <div class="card thread-list-card">
+                <div class="card-title">💬 Conversations</div>
+                {% if message_appointments %}
+                <div class="thread-list">
+                    {% for appointment in message_appointments %}
+                    <a href="{{ url_for('patient_dashboard', tab='messages', appointment_id=appointment.id) }}"
+                       class="thread-item{% if selected_message_appointment and selected_message_appointment.id == appointment.id %} active{% endif %}">
+                        <div class="thread-title">{{ appointment.doctor.name }}</div>
+                        <div class="thread-meta">{{ appointment.doctor.specialty }}</div>
+                        <div class="thread-meta">{{ appointment.date }} at {{ appointment.time }}</div>
+                        <div class="thread-count">{{ appointment.messages|length }} message{% if appointment.messages|length != 1 %}s{% endif %}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="empty-state compact-empty">
+                    <p>No appointment chats yet.</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="card message-panel-card">
+                {% if selected_message_appointment %}
+                <div class="card-header-bar">
+                    <div>
+                        <div class="card-title">Chat with {{ selected_message_appointment.doctor.name }}</div>
+                        <div class="muted">{{ selected_message_appointment.doctor.hospital }} • {{ selected_message_appointment.doctor.city }}</div>
+                    </div>
+                    <div class="message-meta-chip">{{ selected_message_appointment.date }} • {{ selected_message_appointment.time }}</div>
+                </div>
+
+                <div class="message-stream">
+                    {% if selected_messages %}
+                        {% for message in selected_messages %}
+                        <div class="message-row {% if message.sender_role == 'patient' %}mine{% else %}other{% endif %}">
+                            <div class="message-bubble {{ message.sender_role }}">
+                                <div class="message-sender">{% if message.sender_role == "patient" %}You{% else %}{{ selected_message_appointment.doctor.name }}{% endif %}</div>
+                                <p>{{ message.body }}</p>
+                                <div class="message-time">{{ message.created_at.strftime("%d-%m-%Y %I:%M %p") }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state compact-empty">
+                        <p>No messages yet. Start the conversation here.</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <form method="POST" action="{{ url_for('patient_send_message') }}" class="message-form">
+                    <input type="hidden" name="appointment_id" value="{{ selected_message_appointment.id }}">
+                    <label for="patient-message-body">Send a message</label>
+                    <textarea id="patient-message-body" name="body" rows="3" maxlength="800"
+                              placeholder="Type a question for your doctor..." required></textarea>
+                    <button type="submit" class="btn btn-blue">Send Message</button>
+                </form>
+                {% else %}
+                <div class="empty-state">
+                    <p>Select an appointment to open messages with your doctor.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

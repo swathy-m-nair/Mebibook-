@@ -1,0 +1,184 @@
+{% extends "layout.html" %}
+{% block title %}MediBook - Book Doctor Appointments Online{% endblock %}
+
+{% block content %}
+
+<div class="hero">
+    <div class="hero-text">
+        <h1>Book a Doctor Appointment Online</h1>
+        <p>No phone calls. No queues. Select a doctor, pick a time, and you're done.</p>
+        {% if session.get('role') == 'user' %}
+        <a href="{{ url_for('book') }}" class="btn btn-white">Book Appointment</a>
+        <a href="{{ url_for('patient_dashboard') }}" class="btn btn-outline-white">View Dashboard</a>
+        {% elif session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-white">Open Admin Panel</a>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-white">Logout</a>
+        {% else %}
+        <a href="{{ url_for('register') }}" class="btn btn-white">Get Started</a>
+        <a href="{{ url_for('login') }}" class="btn btn-outline-white">Already registered?</a>
+        {% endif %}
+    </div>
+    <div class="hero-features">
+        <div class="hero-feat">No double booking</div>
+        <div class="hero-feat">Instant confirmation</div>
+        <div class="hero-feat">Secure records</div>
+        <div class="hero-feat">Expert doctors</div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="stats-strip">
+        <div class="strip-item"><strong>500+</strong><span>Happy Patients</span></div>
+        <div class="strip-item"><strong>{{ doctors|length }}+</strong><span>Doctors</span></div>
+        <div class="strip-item"><strong>10+</strong><span>Specialties</span></div>
+        <div class="strip-item"><strong>99%</strong><span>Satisfaction</span></div>
+    </div>
+
+    <h2 class="section-title">Our Doctors</h2>
+
+    <!-- ── FILTER BAR ── -->
+    <div class="filter-bar">
+        <div class="filter-search-wrap">
+            <span class="filter-search-icon">🔍</span>
+            <input type="text" id="filterSearch" placeholder="Search by doctor name..."
+                   oninput="applyFilters()" class="filter-search-input">
+        </div>
+        <div class="filter-controls">
+            <select id="filterSpecialty" onchange="applyFilters()" class="filter-select">
+                <option value="">All Specialties</option>
+                {% for s in specialties %}
+                <option value="{{ s }}">{{ s }}</option>
+                {% endfor %}
+            </select>
+            <select id="filterCity" onchange="applyFilters()" class="filter-select">
+                <option value="">All Cities</option>
+                {% for c in cities %}
+                <option value="{{ c }}">{{ c }}</option>
+                {% endfor %}
+            </select>
+            <select id="filterHospital" onchange="applyFilters()" class="filter-select">
+                <option value="">All Hospitals</option>
+                {% for h in hospitals %}
+                <option value="{{ h }}">{{ h }}</option>
+                {% endfor %}
+            </select>
+            <select id="filterExp" onchange="applyFilters()" class="filter-select">
+                <option value="">Any Experience</option>
+                <option value="5">5+ years</option>
+                <option value="10">10+ years</option>
+                <option value="15">15+ years</option>
+                <option value="20">20+ years</option>
+            </select>
+            <select id="filterFee" onchange="applyFilters()" class="filter-select">
+                <option value="">Any Fee</option>
+                <option value="600">Under ₹600</option>
+                <option value="800">Under ₹800</option>
+                <option value="1000">Under ₹1000</option>
+            </select>
+            <button class="filter-clear-btn" onclick="clearFilters()">✕ Clear</button>
+        </div>
+        <div class="filter-result-count" id="filterCount"></div>
+    </div>
+
+    <!-- ── DOCTOR LIST ── -->
+    <div class="doctor-list" id="doctorList">
+        {% for doc in doctors %}
+        <div class="doctor-card"
+             data-name="{{ doc.name | lower }}"
+             data-specialty="{{ doc.specialty }}"
+             data-city="{{ doc.city }}"
+             data-hospital="{{ doc.hospital }}"
+             data-experience="{{ doc.experience }}"
+             data-fee="{{ doc.fee }}">
+            <div class="doc-avatar-wrap">
+                <div class="doc-avatar">👨‍⚕️</div>
+                <div class="doc-exp-badge">{{ doc.experience }}y exp</div>
+            </div>
+            <div class="doc-info">
+                <div class="doc-name">{{ doc.name }}</div>
+                <div class="doc-spec">{{ doc.specialty }}</div>
+                <div class="doc-hospital">🏥 {{ doc.hospital }}</div>
+                <div class="doc-location">📍 {{ doc.city }}</div>
+                <div class="doc-bio">{{ doc.bio }}</div>
+            </div>
+            <div class="doc-fee-block">
+                <div class="doc-fee">₹{{ doc.fee }}</div>
+                <div class="doc-fee-label">per visit</div>
+                {% if session.get('role') == 'user' %}
+                <a href="{{ url_for('book') }}?doc={{ doc.id }}" class="btn btn-blue btn-sm">Book</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="no-results" id="noResults" style="display:none;">
+        <div class="no-results-icon">🔍</div>
+        <p>No doctors match your filters.</p>
+        <button class="btn btn-blue" onclick="clearFilters()">Clear Filters</button>
+    </div>
+
+    <div style="text-align:center; margin-top:30px;">
+        {% if session.get('role') == 'user' %}
+        <a href="{{ url_for('book') }}" class="btn btn-blue">Book an Appointment</a>
+        {% elif session.get('role') == 'admin' %}
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-blue">Open Admin Panel</a>
+        {% else %}
+        <a href="{{ url_for('register') }}" class="btn btn-blue">Book an Appointment</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function applyFilters() {
+    var search    = document.getElementById("filterSearch").value.toLowerCase().trim();
+    var specialty = document.getElementById("filterSpecialty").value;
+    var city      = document.getElementById("filterCity").value;
+    var hospital  = document.getElementById("filterHospital").value;
+    var minExp    = parseInt(document.getElementById("filterExp").value) || 0;
+    var maxFee    = parseInt(document.getElementById("filterFee").value) || 999999;
+
+    var cards   = document.querySelectorAll(".doctor-card");
+    var visible = 0;
+
+    cards.forEach(function(card) {
+        var name     = card.dataset.name;
+        var spec     = card.dataset.specialty;
+        var cty      = card.dataset.city;
+        var hosp     = card.dataset.hospital;
+        var exp      = parseInt(card.dataset.experience) || 0;
+        var fee      = parseInt(card.dataset.fee) || 0;
+
+        var match =
+            (!search    || name.includes(search))              &&
+            (!specialty || spec === specialty)                 &&
+            (!city      || cty  === city)                      &&
+            (!hospital  || hosp === hospital)                  &&
+            (exp >= minExp)                                    &&
+            (fee <= maxFee);
+
+        card.style.display = match ? "" : "none";
+        if (match) visible++;
+    });
+
+    var countEl = document.getElementById("filterCount");
+    countEl.textContent = visible + " doctor" + (visible !== 1 ? "s" : "") + " found";
+    countEl.style.display = "";
+
+    document.getElementById("noResults").style.display = visible === 0 ? "flex" : "none";
+}
+
+function clearFilters() {
+    document.getElementById("filterSearch").value    = "";
+    document.getElementById("filterSpecialty").value = "";
+    document.getElementById("filterCity").value      = "";
+    document.getElementById("filterHospital").value  = "";
+    document.getElementById("filterExp").value       = "";
+    document.getElementById("filterFee").value       = "";
+    applyFilters();
+    document.getElementById("filterCount").style.display = "none";
+}
+</script>
+{% endblock %}

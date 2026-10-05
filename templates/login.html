@@ -1,0 +1,257 @@
+{% extends "layout.html" %}
+{% block title %}Login - MediBook{% endblock %}
+
+{% block content %}
+
+<!-- HERO SPLASH OVERLAY -->
+<div class="splash-overlay" id="splashOverlay">
+    <div class="splash-card" id="splashCard">
+        <div class="splash-brand">
+            <span class="splash-logo">🏥</span>
+            <span class="splash-logo-text">MediBook</span>
+        </div>
+        <h1 class="splash-title">India's Trusted<br>Doctor Booking Platform</h1>
+        <p class="splash-subtitle">Book expert doctors across top hospitals — zero wait, zero hassle.</p>
+
+        <div class="splash-stats">
+            <div class="splash-stat">
+                <div class="splash-stat-value">500+</div>
+                <div class="splash-stat-label">Happy Patients</div>
+            </div>
+            <div class="splash-stat">
+                <div class="splash-stat-value">50+</div>
+                <div class="splash-stat-label">Expert Doctors</div>
+            </div>
+            <div class="splash-stat">
+                <div class="splash-stat-value">15+</div>
+                <div class="splash-stat-label">Specialties</div>
+            </div>
+            <div class="splash-stat">
+                <div class="splash-stat-value">99%</div>
+                <div class="splash-stat-label">Satisfaction</div>
+            </div>
+        </div>
+
+        <div class="splash-badges">
+            <div class="splash-badge">
+                <span class="badge-icon">🏆</span>
+                <span>Best Health-Tech Startup 2024</span>
+            </div>
+            <div class="splash-badge">
+                <span class="badge-icon">🔒</span>
+                <span>ISO 27001 Certified Security</span>
+            </div>
+            <div class="splash-badge">
+                <span class="badge-icon">⚡</span>
+                <span>Appointments confirmed in &lt;60 seconds</span>
+            </div>
+            <div class="splash-badge">
+                <span class="badge-icon">🏥</span>
+                <span>Partnered with Top 20 Hospitals in Chennai</span>
+            </div>
+        </div>
+
+        <div class="splash-cta">
+            <button class="splash-btn" onclick="closeSplash()">Get Started →</button>
+            <div class="splash-timer">Auto-closing in <span id="splashCountdown">6</span>s</div>
+        </div>
+    </div>
+</div>
+
+<!-- LOGIN FORM -->
+<div class="auth-page">
+    <div class="auth-box">
+        <div class="auth-header">
+            <div class="auth-icon">🏥</div>
+            <h2>Welcome Back</h2>
+            <p>Sign in to your MediBook account</p>
+        </div>
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+            <div class="form-group">
+                <label>Login As</label>
+                <select name="login_role" id="loginRole" onchange="updateLoginMode()">
+                    <option value="patient"{% if selected_role == "patient" %} selected{% endif %}>Patient</option>
+                    <option value="doctor"{% if selected_role == "doctor" %} selected{% endif %}>Doctor</option>
+                    <option value="hospital"{% if selected_role == "hospital" %} selected{% endif %}>Hospital</option>
+                    <option value="admin"{% if selected_role == "admin" %} selected{% endif %}>Admin</option>
+                </select>
+            </div>
+            <div class="form-group" id="emailGroup">
+                <label>Email Address</label>
+                <input type="email" name="email" id="emailInput"
+                       value="{{ request.form.get('email', '') }}"
+                       placeholder="your@email.com" autofocus>
+            </div>
+            <div class="form-group" id="doctorGroup">
+                <label>Select Doctor</label>
+                <input type="text" id="doctorSearch"
+                       placeholder="Search doctor name or hospital"
+                       autocomplete="off"
+                       oninput="filterDoctorOptions()">
+                <select name="doctor_id" id="doctorSelect">
+                    <option value="">Choose your name</option>
+                    {% for doc in doctors %}
+                    <option value="{{ doc.id }}"{% if request.form.get('doctor_id') == doc.id|string %} selected{% endif %}>
+                        {{ doc.name }}{% if doc.hospital %} - {{ doc.hospital }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+                <small id="doctorSearchHint">Type to quickly find your name from the list.</small>
+            </div>
+            <div class="form-group" id="hospitalGroup">
+                <label>Select Hospital</label>
+                <select name="hospital_id" id="hospitalSelect">
+                    <option value="">Choose your hospital</option>
+                    {% for h in hospitals %}
+                    <option value="{{ h.id }}"{% if request.form.get('hospital_id') == h.id|string %} selected{% endif %}>
+                        {{ h.name }}{% if h.city %} — {{ h.city }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" id="passwordInput" placeholder="Your password" required>
+            </div>
+            <div class="auth-note" id="adminLoginHint" style="display: none;">
+                Admin login: <strong>admin@medibook.com</strong> / <strong>admin123</strong>
+            </div>
+            <button type="submit" class="btn btn-blue btn-block">Login</button>
+        </form>
+        <div class="auth-footer">
+            Don't have an account? <a href="{{ url_for('register') }}">Sign up here</a>
+        </div>
+        <div class="auth-note">
+            Patients can use any registered test email. Doctors can choose their name from the list to open the doctor panel.
+        </div>
+        <div class="admin-hint">
+            <small>Doctor portal default password: doctor123 &nbsp;|&nbsp; Hospital portal default password: hospital123</small>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var countdown = 6;
+    var doctorOptionCache = [];
+
+    function ensureDoctorOptionCache() {
+        var doctorSelect = document.getElementById('doctorSelect');
+        if (!doctorSelect || doctorOptionCache.length) {
+            return;
+        }
+
+        Array.from(doctorSelect.options).forEach(function(option, index) {
+            doctorOptionCache.push({
+                value: option.value,
+                label: option.textContent,
+                selected: option.selected,
+                isPlaceholder: index === 0 || option.value === ''
+            });
+        });
+    }
+
+    function filterDoctorOptions() {
+        var doctorSelect = document.getElementById('doctorSelect');
+        var doctorSearch = document.getElementById('doctorSearch');
+        var doctorSearchHint = document.getElementById('doctorSearchHint');
+        if (!doctorSelect || !doctorSearch) {
+            return;
+        }
+
+        ensureDoctorOptionCache();
+
+        var query = doctorSearch.value.trim().toLowerCase();
+        var currentValue = doctorSelect.value;
+        var visibleOptions = doctorOptionCache.filter(function(item) {
+            if (item.isPlaceholder) {
+                return true;
+            }
+            return item.label.toLowerCase().includes(query);
+        });
+
+        doctorSelect.innerHTML = '';
+        visibleOptions.forEach(function(item) {
+            var option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.label;
+            if (item.value === currentValue) {
+                option.selected = true;
+            }
+            doctorSelect.appendChild(option);
+        });
+
+        if (doctorSelect.selectedIndex === -1 && doctorSelect.options.length) {
+            doctorSelect.selectedIndex = 0;
+        }
+
+        if (doctorSearchHint) {
+            doctorSearchHint.textContent = visibleOptions.length > 1
+                ? (visibleOptions.length - 1) + ' doctors match your search.'
+                : 'No doctors match that search yet.';
+            if (!query) {
+                doctorSearchHint.textContent = 'Type to quickly find your name from the list.';
+            }
+        }
+    }
+
+    function updateLoginMode() {
+        var role = document.getElementById('loginRole').value;
+        var emailGroup = document.getElementById('emailGroup');
+        var doctorGroup = document.getElementById('doctorGroup');
+        var hospitalGroup = document.getElementById('hospitalGroup');
+        var emailInput = document.getElementById('emailInput');
+        var doctorSearch = document.getElementById('doctorSearch');
+        var doctorSelect = document.getElementById('doctorSelect');
+        var hospitalSelect = document.getElementById('hospitalSelect');
+        var adminLoginHint = document.getElementById('adminLoginHint');
+
+        // Hide all optional groups first
+        emailGroup.style.display = 'none';
+        doctorGroup.style.display = 'none';
+        hospitalGroup.style.display = 'none';
+        emailInput.required = false;
+        doctorSelect.required = false;
+        hospitalSelect.required = false;
+
+        if (role === 'doctor') {
+            doctorGroup.style.display = 'block';
+            doctorSelect.required = true;
+            if (doctorSearch) filterDoctorOptions();
+        } else if (role === 'hospital') {
+            hospitalGroup.style.display = 'block';
+            hospitalSelect.required = true;
+        } else {
+            emailGroup.style.display = 'block';
+            emailInput.required = true;
+            if (doctorSearch) { doctorSearch.value = ''; filterDoctorOptions(); }
+        }
+
+        if (role === 'admin') {
+            emailInput.placeholder = 'admin@medibook.com';
+            if (adminLoginHint) adminLoginHint.style.display = 'block';
+        } else {
+            emailInput.placeholder = 'your@email.com';
+            if (adminLoginHint) adminLoginHint.style.display = 'none';
+        }
+    }
+
+    function closeSplash() {
+        var overlay = document.getElementById('splashOverlay');
+        overlay.classList.add('splash-exit');
+        setTimeout(function() { overlay.style.display = 'none'; }, 500);
+    }
+    var timer = setInterval(function() {
+        countdown--;
+        var el = document.getElementById('splashCountdown');
+        if (el) el.textContent = countdown;
+        if (countdown <= 0) { clearInterval(timer); closeSplash(); }
+    }, 1000);
+    document.getElementById('splashOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeSplash();
+    });
+    ensureDoctorOptionCache();
+    updateLoginMode();
+</script>
+{% endblock %}

@@ -1,0 +1,366 @@
+{% extends "layout.html" %}
+{% block title %}Book Appointment - MediBook{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <div class="page-header">
+        <h1>Book an Appointment</h1>
+        <a href="{{ back_url }}" class="btn btn-gray back-btn" onclick="return goBack(event);">
+            <span aria-hidden="true">&larr;</span>
+            <span>Back</span>
+        </a>
+    </div>
+
+    <form method="POST" action="{{ url_for('book') }}" id="book-form">
+        {% if preselect_id %}
+        <input type="hidden" name="doc" value="{{ preselect_id }}">
+        <input type="hidden" name="doctor_id" value="{{ preselect_id }}">
+        {% endif %}
+
+        {% if preselect_id and selected_doctor %}
+        <div class="card selected-doctor-card">
+            <div class="card-title">Selected Doctor</div>
+            <div class="selected-doctor-head">
+                <div>
+                    <div class="selected-doctor-name">{{ selected_doctor.name }}</div>
+                    <div class="selected-doctor-meta">
+                        <span>Specialty: {{ selected_doctor.specialty }}</span>
+                        <span>Hospital: {{ selected_doctor.hospital }}</span>
+                        <span>City: {{ selected_doctor.city }}</span>
+                    </div>
+                </div>
+                <div class="selected-doctor-fee">Rs. {{ selected_doctor.fee }}</div>
+            </div>
+            {% if selected_doctor.bio %}
+            <p class="selected-doctor-bio">{{ selected_doctor.bio }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if not preselect_id %}
+        <div class="card" id="step1">
+            <div class="card-title">Step 1 - Choose a Doctor</div>
+
+            <div class="doctor-grid">
+                {% for doc in doctors %}
+                <label class="doctor-option{% if preselect_id and doc.id|string == preselect_id %} preselected{% endif %}"
+                       for="doc{{ doc.id }}">
+                    <input type="radio" name="doctor_id" id="doc{{ doc.id }}"
+                           value="{{ doc.id }}" onchange="onDoctorChange()"
+                           {% if preselect_id and doc.id|string == preselect_id %}checked{% endif %}>
+                    <div class="doctor-option-inner">
+                        <div class="option-name">{{ doc.name }}</div>
+                        <div class="option-spec">{{ doc.specialty }}</div>
+                        <div class="option-fee">Rs. {{ doc.fee }}</div>
+                    </div>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card" id="step2">
+            <div class="card-title">{% if preselect_id %}Choose Date and Time{% else %}Step 2 - Choose Date and Time{% endif %}</div>
+            <div class="form-group">
+                <label>Available Dates</label>
+                <div class="date-chip-grid" id="quickDatePicker"></div>
+                <div class="date-picker-inline">
+                    <span class="date-picker-alt-label">Or enter a date as DD-MM-YYYY</span>
+                    <input type="text" id="date-display" class="date-display-input"
+                           placeholder="DD-MM-YYYY" inputmode="numeric" autocomplete="off"
+                           onchange="handleDateDisplayChange()">
+                    <input type="hidden" name="date" id="date-input" value="">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Available Time Slots</label>
+                <div class="slots-wrap" id="slots-area">
+                    <p class="hint">{% if preselect_id %}Select a date to see available slots.{% else %}Select a doctor and date to see available slots.{% endif %}</p>
+                </div>
+                <input type="hidden" name="time" id="time-hidden">
+            </div>
+        </div>
+
+        <div style="display:flex; gap:12px;">
+            <button type="submit" class="btn btn-blue" onclick="return validateForm()">
+                Confirm Booking
+            </button>
+            <a href="{{ back_url }}" class="btn btn-gray" onclick="return goBack(event);">Cancel</a>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var ALL_SLOTS = [
+        "09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
+        "12:00 PM","02:00 PM","02:30 PM","03:00 PM","03:30 PM","04:00 PM","05:00 PM"
+    ];
+    var minDate = {{ today|tojson }};
+    var chosenDoctor = {{ preselect_id|tojson }};
+    var chosenTime = null;
+
+    window.addEventListener("DOMContentLoaded", function() {
+        var preChecked = document.querySelector("input[name='doctor_id']:checked");
+        if (preChecked) {
+            chosenDoctor = preChecked.value;
+        }
+
+        if (chosenDoctor) {
+            setTimeout(function() {
+                var step2 = document.getElementById("step2");
+                if (step2) {
+                    step2.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }, 300);
+        }
+
+        renderQuickDates();
+        syncDateSelection();
+    });
+
+    function formatIsoDate(dateObj) {
+        var year = dateObj.getFullYear();
+        var month = String(dateObj.getMonth() + 1).padStart(2, "0");
+        var day = String(dateObj.getDate()).padStart(2, "0");
+        return year + "-" + month + "-" + day;
+    }
+
+    function formatDisplayDate(isoDate) {
+        if (!isoDate) {
+            return "";
+        }
+
+        var parts = isoDate.split("-");
+        if (parts.length !== 3) {
+            return "";
+        }
+
+        return parts[2] + "-" + parts[1] + "-" + parts[0];
+    }
+
+    function parseDisplayDate(value) {
+        var normalized = value.trim().replace(/[./]/g, "-");
+        var match = normalized.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+        if (!match) {
+            return "";
+        }
+
+        var day = match[1].padStart(2, "0");
+        var month = match[2].padStart(2, "0");
+        var year = match[3];
+        var isoDate = year + "-" + month + "-" + day;
+        var parsedDate = new Date(isoDate + "T00:00:00");
+
+        if (Number.isNaN(parsedDate.getTime()) || formatIsoDate(parsedDate) !== isoDate) {
+            return "";
+        }
+
+        return isoDate;
+    }
+
+    function renderQuickDates() {
+        var picker = document.getElementById("quickDatePicker");
+        if (!picker) {
+            return;
+        }
+
+        var today = new Date(minDate + "T00:00:00");
+        picker.innerHTML = "";
+
+        for (var i = 0; i < 10; i++) {
+            var optionDate = new Date(today);
+            optionDate.setDate(today.getDate() + i);
+
+            var iso = formatIsoDate(optionDate);
+            var button = document.createElement("button");
+            button.type = "button";
+            button.className = "date-chip";
+            button.dataset.date = iso;
+            button.innerHTML =
+                "<span class='date-chip-day'>" + optionDate.toLocaleDateString("en-IN", { weekday: "short" }) + "</span>" +
+                "<span class='date-chip-number'>" + optionDate.getDate() + "</span>" +
+                "<span class='date-chip-month'>" + optionDate.toLocaleDateString("en-IN", { month: "short" }) + "</span>";
+            button.onclick = (function(selectedIso) {
+                return function() {
+                    document.getElementById("date-input").value = selectedIso;
+                    syncDateSelection();
+                    loadSlots();
+                };
+            })(iso);
+            picker.appendChild(button);
+        }
+    }
+
+    function syncDateSelection() {
+        var input = document.getElementById("date-input");
+        var display = document.getElementById("date-display");
+        if (!input) {
+            return;
+        }
+
+        if (display) {
+            display.value = formatDisplayDate(input.value);
+            display.setCustomValidity("");
+        }
+
+        document.querySelectorAll(".date-chip").forEach(function(button) {
+            button.classList.toggle("selected", button.dataset.date === input.value);
+        });
+    }
+
+    function handleDateDisplayChange() {
+        var input = document.getElementById("date-input");
+        var display = document.getElementById("date-display");
+        if (!input || !display) {
+            return;
+        }
+
+        var isoDate = parseDisplayDate(display.value);
+        if (!isoDate) {
+            input.value = "";
+            display.setCustomValidity("Use DD-MM-YYYY.");
+            display.reportValidity();
+            syncDateSelection();
+            return;
+        }
+
+        if (isoDate < minDate) {
+            input.value = "";
+            display.setCustomValidity("Choose today or a future date.");
+            display.reportValidity();
+            syncDateSelection();
+            return;
+        }
+
+        input.value = isoDate;
+        display.setCustomValidity("");
+        syncDateSelection();
+        loadSlots();
+    }
+
+    function onDoctorChange() {
+        var selected = document.querySelector("input[name='doctor_id']:checked");
+        if (selected) {
+            chosenDoctor = selected.value;
+            if (document.getElementById("date-input").value) {
+                loadSlots();
+            }
+        }
+    }
+
+    function loadSlots() {
+        var date = document.getElementById("date-input").value;
+        var area = document.getElementById("slots-area");
+        if (!date || !chosenDoctor) {
+            if (area) {
+                area.innerHTML = "<p class='hint'>Select a doctor and date to see available slots.</p>";
+            }
+            return;
+        }
+
+        fetch("/get-booked-slots?doctor_id=" + encodeURIComponent(chosenDoctor) + "&date=" + encodeURIComponent(date), {
+            cache: "no-store"
+        })
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                renderSlots({
+                    pending: Array.isArray(data.pending) ? data.pending : [],
+                    approved: Array.isArray(data.approved) ? data.approved : [],
+                    blocked: Array.isArray(data.blocked) ? data.blocked : [],
+                    unavailable: Array.isArray(data.unavailable) ? data.unavailable : []
+                });
+            })
+            .catch(function() {
+                if (area) {
+                    area.innerHTML = "<p class='hint'>Unable to load slots right now. Please try again.</p>";
+                }
+            });
+    }
+
+    function renderSlots(slotData) {
+        var area = document.getElementById("slots-area");
+        area.innerHTML = "";
+        chosenTime = null;
+        document.getElementById("time-hidden").value = "";
+        var pendingList = slotData.pending || [];
+        var approvedList = slotData.approved || [];
+        var blockedList = slotData.blocked || [];
+
+        ALL_SLOTS.forEach(function(slot) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            if (pendingList.includes(slot)) {
+                btn.className = "slot waiting";
+                btn.disabled = true;
+                btn.innerHTML = "<span>" + slot + "</span><span class='slot-tag'>Waiting List</span>";
+                btn.title = "Waiting List";
+            } else if (approvedList.includes(slot) || blockedList.includes(slot)) {
+                btn.className = "slot taken";
+                btn.disabled = true;
+                btn.textContent = slot;
+                btn.title = "Unavailable";
+            } else {
+                btn.className = "slot";
+                btn.textContent = slot;
+                btn.onclick = function() { selectSlot(slot, btn); };
+            }
+
+            area.appendChild(btn);
+        });
+    }
+
+    function selectSlot(slot, el) {
+        chosenTime = slot;
+        document.getElementById("time-hidden").value = slot;
+        document.querySelectorAll(".slot").forEach(function(slotButton) {
+            slotButton.classList.remove("selected");
+        });
+        el.classList.add("selected");
+    }
+
+    function validateForm() {
+        if (!chosenDoctor) {
+            alert("Please select a doctor.");
+            return false;
+        }
+        if (!document.getElementById("date-input").value) {
+            alert("Please choose a date.");
+            return false;
+        }
+        if (!chosenTime) {
+            alert("Please pick a time slot.");
+            return false;
+        }
+        return true;
+    }
+
+    function goBack(event) {
+        var referrer = document.referrer;
+        if (!referrer) {
+            return true;
+        }
+
+        try {
+            var referrerUrl = new URL(referrer);
+            var currentUrl = new URL(window.location.href);
+            var sameOrigin = referrerUrl.origin === currentUrl.origin;
+            var samePage = (referrerUrl.pathname + referrerUrl.search) ===
+                (currentUrl.pathname + currentUrl.search);
+
+            if (sameOrigin && !samePage && window.history.length > 1) {
+                event.preventDefault();
+                window.history.back();
+                return false;
+            }
+        } catch (error) {
+            return true;
+        }
+
+        return true;
+    }
+</script>
+{% endblock %}
